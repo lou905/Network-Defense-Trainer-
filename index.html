@@ -1,0 +1,623 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Network Defense Trainer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Spectral:wght@600;700&display=swap">
+<style>
+  /* Layout: single-column console app; sticky tab bar up top, module panels swap below. "Terminal-lab" identity — instrument panel feel, mono accents, status chips. */
+  :root {
+    --bg: #f4f6f8;
+    --surface: #ffffff;
+    --surface-2: #eceff3;
+    --ink: #1a2230;
+    --ink-soft: #566074;
+    --line: #d6dce4;
+    --accent: #1f6feb;
+    --accent-soft: #e4eeff;
+    --good: #1a7f54;
+    --good-soft: #dcf2e8;
+    --warn: #b06a00;
+    --warn-soft: #fbeecf;
+    --crit: #c23a3a;
+    --crit-soft: #fbe0de;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    --sans: "Inter", system-ui, -apple-system, sans-serif;
+    --serif: "Spectral", Georgia, serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1420; --surface: #161d2b; --surface-2: #1e2738;
+      --ink: #e8edf5; --ink-soft: #9aa7bd; --line: #2a3446;
+      --accent: #4b93ff; --accent-soft: #16294a;
+      --good: #4cc08a; --good-soft: #102a21;
+      --warn: #e0a030; --warn-soft: #2e2510;
+      --crit: #f0645f; --crit-soft: #2e1512;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1420; --surface: #161d2b; --surface-2: #1e2738;
+    --ink: #e8edf5; --ink-soft: #9aa7bd; --line: #2a3446;
+    --accent: #4b93ff; --accent-soft: #16294a;
+    --good: #4cc08a; --good-soft: #102a21;
+    --warn: #e0a030; --warn-soft: #2e2510;
+    --crit: #f0645f; --crit-soft: #2e1512;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.5; }
+
+  .wrap {
+    max-width: 920px; margin: 0 auto;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 0 48px;
+  }
+
+  header { padding-block: 28px 18px; }
+  .kicker { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin: 0 0 6px; }
+  h1 { font-family: var(--serif); font-size: clamp(28px, 6vw, 40px); line-height: 1.08; margin: 0 0 8px; text-wrap: balance; }
+  .sub { color: var(--ink-soft); margin: 0; max-width: 62ch; }
+
+  .tabs {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+    display: flex; gap: 6px; flex-wrap: wrap;
+    background: var(--bg); padding-block: 10px; margin-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+  .tab {
+    font-family: var(--sans); font-size: 13.5px; font-weight: 600;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-soft);
+    padding: 8px 13px; border-radius: 8px; cursor: pointer; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tab .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+  .tab[data-done="true"] .dot { background: var(--good); }
+  .tab[aria-selected="true"] .dot { background: #fff; }
+
+  .panel { display: flex; flex-direction: column; gap: 18px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+  .card h2 { font-family: var(--serif); font-size: 21px; margin: 0 0 4px; }
+  .card h3 { font-size: 15px; margin: 0 0 10px; }
+  .card p.lead { color: var(--ink-soft); margin: 0 0 14px; }
+
+  .pile { border: 1.5px dashed var(--line); border-radius: 10px; padding: 12px; min-height: 60px; }
+  .pile h4 { margin: 0 0 8px; font-size: 13px; font-family: var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--ink-soft); }
+  .attack-item {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--ink);
+    border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; font-size: 14px; font-weight: 500;
+  }
+  .attack-item:last-child { margin-bottom: 0; }
+  .attack-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .attack-item .ico { font-family: var(--mono); font-weight: 700; color: var(--accent); }
+  .attack-item.placed-right { border-color: var(--good); background: var(--good-soft); }
+  .attack-item.placed-wrong { border-color: var(--crit); background: var(--crit-soft); }
+  .cat-buttons { display: flex; flex-direction: column; gap: 8px; }
+  .cat-btn { text-align: left; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 10px 12px; cursor: pointer; font-size: 13.5px; }
+  .cat-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  .cat-btn small { display: block; color: var(--ink-soft); font-weight: 400; margin-top: 2px; font-size: 12px; }
+  .explain { font-size: 13px; color: var(--ink-soft); margin-top: 10px; min-height: 18px; }
+  .score-line { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+
+  .wifi-step { display: none; }
+  .wifi-step.active { display: block; }
+  .opt-row { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+  .opt { display: flex; align-items: flex-start; gap: 10px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 9px; padding: 12px; cursor: pointer; font-size: 14px; color: var(--ink); text-align: left; width: 100%; }
+  .opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .opt.right { border-color: var(--good); background: var(--good-soft); }
+  .opt.wrong { border-color: var(--crit); background: var(--crit-soft); }
+  .opt .k { font-family: var(--mono); font-weight: 700; }
+  .signal-bar { height: 8px; border-radius: 6px; background: var(--surface-2); overflow: hidden; margin: 14px 0 6px; border: 1px solid var(--line); }
+  .signal-fill { height: 100%; width: 20%; background: var(--crit); transition: width .5s ease, background .5s ease; }
+  .meter-cap { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); }
+
+  .device { display: flex; align-items: center; gap: 9px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; padding: 9px 11px; margin-bottom: 7px; font-size: 13.5px; }
+  .device .zsel { margin-left: auto; font-family: var(--sans); font-size: 12.5px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); min-width: 0; }
+  .zone-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .zdot { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-family: var(--mono); }
+  .zdot i { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+  .btn { font-family: var(--sans); font-weight: 600; font-size: 14px; border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 8px; padding: 10px 16px; cursor: pointer; }
+  .btn.ghost { background: transparent; color: var(--accent); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
+
+  .feedback { border-radius: 9px; padding: 12px; font-size: 13.5px; margin-top: 12px; display: none; }
+  .feedback.show { display: block; }
+  .feedback.ok { background: var(--good-soft); color: var(--good); border: 1px solid var(--good); }
+  .feedback.bad { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn); }
+  .feedback ul { margin: 6px 0 0; padding-left: 18px; }
+
+  .teach-note { font-size: 12.5px; color: var(--ink-soft); border-left: 3px solid var(--accent); padding: 4px 0 4px 11px; margin-top: 12px; }
+  .foot { text-align: center; color: var(--ink-soft); font-size: 12px; margin-top: 26px; font-family: var(--mono); }
+
+  /* ---- Completion certificate ---- */
+  .name-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .name-field label { font-size: 13px; font-weight: 600; }
+  .name-field input { font-family: var(--sans); font-size: 15px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); color: var(--ink); }
+  .name-field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .cert { border: 2px solid var(--accent); border-radius: 14px; padding: 22px; margin-top: 16px; background: linear-gradient(180deg, var(--accent-soft), var(--surface)); }
+  .cert .seal { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0 0 4px; }
+  .cert h3 { font-family: var(--serif); font-size: 24px; margin: 0 0 2px; }
+  .cert .who { font-size: 18px; font-weight: 700; margin: 10px 0 2px; }
+  .cert .when { font-size: 12.5px; color: var(--ink-soft); font-family: var(--mono); margin: 0 0 14px; }
+  .cert .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .cert .row:last-of-type { border-bottom: none; }
+  .cert .row .st { font-weight: 500; }
+  .cert .row .sc { font-family: var(--mono); font-weight: 700; display: inline-flex; align-items: center; gap: 7px; }
+  .cert .tick { color: var(--good); }
+  .cert .partial { color: var(--warn); }
+  .cert .overall { margin-top: 14px; font-family: var(--serif); font-size: 18px; font-weight: 700; }
+  .cert .code { font-family: var(--mono); font-size: 13px; color: var(--ink-soft); margin-top: 6px; }
+  .copyout { width: 100%; font-family: var(--mono); font-size: 12px; background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 10px; margin-top: 14px; white-space: pre; overflow-x: auto; min-width: 0; }
+  .send-note { font-size: 12.5px; color: var(--ink-soft); margin-top: 10px; }
+  .copied { color: var(--good); font-weight: 600; font-size: 13px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="kicker">NetAcad Module 3 · Lab</p>
+    <h1>Network Defense Trainer</h1>
+    <p class="sub">Four stations for Topics 3.1–3.3: identify the attack, lock down the wireless network, segment the campus — then build a completion certificate to send your teacher. No login, no internet needed.</p>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Lab stations">
+    <button class="tab" role="tab" id="tab-1" aria-controls="p1" aria-selected="true" data-p="1" data-done="false"><span class="dot"></span>3.1 · Spot the Attack</button>
+    <button class="tab" role="tab" id="tab-2" aria-controls="p2" aria-selected="false" data-p="2" data-done="false"><span class="dot"></span>3.2 · Harden the Wi-Fi</button>
+    <button class="tab" role="tab" id="tab-3" aria-controls="p3" aria-selected="false" data-p="3" data-done="false"><span class="dot"></span>3.3 · Segment the Campus</button>
+    <button class="tab" role="tab" id="tab-4" aria-controls="p4" aria-selected="false" data-p="4"><span class="dot"></span>Completion</button>
+  </div>
+
+  <!-- ===== PANEL 1 : ATTACK CLASSIFIER ===== -->
+  <section class="panel" id="p1" role="tabpanel" aria-labelledby="tab-1">
+    <div class="card">
+      <h2>Spot the Attack</h2>
+      <p class="lead">An incident lands on your desk. Pick a category below, then click the alert it matches. Eight alerts, drawn fresh each time you load or reset.</p>
+      <div class="cat-buttons" id="catBtns" style="margin-bottom:14px">
+        <button class="cat-btn" data-cat="recon" aria-pressed="false"><strong>Reconnaissance</strong><small>Mapping the target before striking — scans, sweeps, queries</small></button>
+        <button class="cat-btn" data-cat="access" aria-pressed="false"><strong>Access Attack</strong><small>Getting in or impersonating — spoofing, MITM, trust exploits</small></button>
+        <button class="cat-btn" data-cat="social" aria-pressed="false"><strong>Social Engineering</strong><small>Tricking a human instead of a machine</small></button>
+        <button class="cat-btn" data-cat="dos" aria-pressed="false"><strong>Denial of Service</strong><small>Overwhelming a resource so it can't serve anyone</small></button>
+      </div>
+      <div class="pile" aria-label="Unclassified alerts"><h4>Incoming alerts</h4><div id="alertPile"></div></div>
+      <p class="explain" id="sortExplain" aria-live="polite">Select a category, then click an alert that belongs to it.</p>
+      <div class="btnrow">
+        <span class="score-line" id="sortScore">Solved 0 / 8</span>
+        <button class="btn ghost" id="sortReset" style="margin-left:auto">Reset &amp; reshuffle</button>
+      </div>
+      <p class="teach-note">Teaching tie-in: these four categories are how NetAcad frames threats in 3.1. Reconnaissance usually comes <em>first</em> — attackers map before they move.</p>
+    </div>
+  </section>
+
+  <!-- ===== PANEL 2 : WIRELESS HARDENING ===== -->
+  <section class="panel" id="p2" role="tabpanel" aria-labelledby="tab-2" hidden>
+    <div class="card">
+      <h2>Harden the Wi-Fi</h2>
+      <p class="lead">The front-office access point was set up in a hurry. Work four decisions — pulled at random from a larger pool, in random order. Each right call raises the security meter.</p>
+      <div class="signal-bar" aria-hidden="true"><div class="signal-fill" id="wifiFill"></div></div>
+      <p class="meter-cap"><span id="wifiPct">20</span>% hardened · <span id="wifiState">Wide open</span></p>
+      <div id="wifiSteps"></div>
+      <div class="btnrow"><button class="btn ghost" id="wifiReset">Reset &amp; reshuffle</button></div>
+      <p class="teach-note">Teaching tie-in: maps to 3.2 Wireless Network Security — strong encryption (WPA3 / WPA2-Enterprise over WEP), no default credentials, SSID is not security, and rogue-AP awareness.</p>
+    </div>
+  </section>
+
+  <!-- ===== PANEL 3 : SEGMENTATION ===== -->
+  <section class="panel" id="p3" role="tabpanel" aria-labelledby="tab-3" hidden>
+    <div class="card">
+      <h2>Segment the Campus</h2>
+      <p class="lead">Everything at Cambridge sits on one flat network — a breach anywhere reaches everywhere. Assign each device to the right zone (VLAN), then check your design. Devices are drawn fresh each load.</p>
+      <div class="zone-legend">
+        <span class="zdot"><i style="background:var(--accent)"></i>Staff / Admin</span>
+        <span class="zdot"><i style="background:var(--good)"></i>Student</span>
+        <span class="zdot"><i style="background:var(--warn)"></i>Guest</span>
+        <span class="zdot"><i style="background:var(--crit)"></i>Servers / IoT</span>
+      </div>
+      <div id="segList"></div>
+      <div class="btnrow">
+        <button class="btn" id="segCheck">Check design</button>
+        <button class="btn ghost" id="segReset">Reset &amp; reshuffle</button>
+      </div>
+      <div class="feedback" id="segFeedback" aria-live="polite"></div>
+      <p class="teach-note">Teaching tie-in: maps to 3.3 Network Segmentation — least privilege and blast-radius control. Guests and IoT never share a zone with grade servers.</p>
+    </div>
+  </section>
+
+  <!-- ===== PANEL 4 : COMPLETION ===== -->
+  <section class="panel" id="p4" role="tabpanel" aria-labelledby="tab-4" hidden>
+    <div class="card">
+      <h2>Completion Certificate</h2>
+      <p class="lead">Finish all three stations, type your name, and build your certificate. Then <strong>screenshot it</strong> or <strong>copy the text</strong> and send it to your teacher in Teams or email.</p>
+      <div class="name-field">
+        <label for="studentName">Your full name</label>
+        <input type="text" id="studentName" placeholder="e.g. Jordan Rivera" autocomplete="off">
+      </div>
+      <div class="btnrow"><button class="btn" id="buildCert">Build my certificate</button></div>
+      <div id="certArea"></div>
+    </div>
+  </section>
+
+  <p class="foot">Built for the classroom · works offline · no student data leaves this page</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- helpers ---------- */
+  function shuffle(arr) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  // take n items per category to keep each round balanced
+  function sampleBalanced(pool, key, perCat) {
+    var groups = {};
+    pool.forEach(function (x) { (groups[x[key]] = groups[x[key]] || []).push(x); });
+    var out = [];
+    Object.keys(groups).forEach(function (g) { out = out.concat(shuffle(groups[g]).slice(0, perCat)); });
+    return shuffle(out);
+  }
+
+  /* ---------- shared completion state ---------- */
+  var STATE = {
+    s1: { solved: 0, total: 8, done: false },
+    s2: { correct: 0, total: 4, done: false },
+    s3: { correct: 0, total: 8, done: false }
+  };
+  function markTab(n, done) {
+    var tab = document.getElementById('tab-' + n);
+    if (tab) tab.setAttribute('data-done', done ? 'true' : 'false');
+  }
+
+  /* ---------- Tabs ---------- */
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  var panels = { "1":document.getElementById('p1'), "2":document.getElementById('p2'), "3":document.getElementById('p3'), "4":document.getElementById('p4') };
+  function showPanel(n) {
+    tabs.forEach(function (t) { t.setAttribute('aria-selected', t.dataset.p === n ? 'true' : 'false'); });
+    Object.keys(panels).forEach(function (k) { panels[k].hidden = (k !== n); });
+  }
+  tabs.forEach(function (t) { t.addEventListener('click', function () { showPanel(t.dataset.p); }); });
+
+  /* ================= STATION 1 ================= */
+  var ALERT_POOL = [
+    { cat:'recon', text:'Repeated port scans across your whole /24 subnet overnight from one outside host.' },
+    { cat:'recon', text:'Dozens of DNS and WHOIS lookups probing your public domain and mail records.' },
+    { cat:'recon', text:'A ping sweep walks every address on the subnet looking for live hosts.' },
+    { cat:'recon', text:'Traceroutes repeatedly map the path to your internal servers.' },
+    { cat:'access', text:'A device claims the gateway’s MAC address; traffic is quietly rerouted through it (MITM).' },
+    { cat:'access', text:'Forged source IP makes packets appear to come from a trusted internal server (spoofing).' },
+    { cat:'access', text:'Thousands of password guesses hit the admin portal (brute force).' },
+    { cat:'access', text:'Captured login traffic is replayed later to re-authenticate as a real user.' },
+    { cat:'social', text:'An email “from the principal” asks the office to wire gift cards urgently.' },
+    { cat:'social', text:'A caller posing as IT asks a teacher to read back her network password.' },
+    { cat:'social', text:'USB drives labeled “Payroll” are left in the parking lot for staff to find.' },
+    { cat:'social', text:'A stranger follows a staffer through a badge-locked door (tailgating).' },
+    { cat:'dos', text:'A flood of half-open TCP connections (SYN flood) exhausts the web server.' },
+    { cat:'dos', text:'Thousands of compromised devices hammer your portal at once from everywhere (DDoS).' },
+    { cat:'dos', text:'A massive ICMP ping flood saturates the school’s internet link.' },
+    { cat:'dos', text:'Malformed packets crash a service until it stops responding to anyone.' }
+  ];
+  var CAT_NAMES = { recon:'Reconnaissance', access:'Access Attack', social:'Social Engineering', dos:'Denial of Service' };
+  var ALERTS, selectedCat, solved;
+  var catBtns = Array.prototype.slice.call(document.querySelectorAll('.cat-btn'));
+  var pile = document.getElementById('alertPile');
+  var sortExplain = document.getElementById('sortExplain');
+  var sortScore = document.getElementById('sortScore');
+
+  function initStation1() {
+    ALERTS = sampleBalanced(ALERT_POOL, 'cat', 2).map(function (a, i) { return { id:'a'+i, cat:a.cat, text:a.text, done:false }; });
+    selectedCat = null; solved = 0;
+    STATE.s1 = { solved:0, total:ALERTS.length, done:false };
+    markTab(1, false);
+    catBtns.forEach(function (b) { b.setAttribute('aria-pressed','false'); });
+    sortScore.textContent = 'Solved 0 / ' + ALERTS.length;
+    sortExplain.textContent = 'Select a category, then click an alert that belongs to it.';
+    renderAlerts();
+  }
+  function renderAlerts() {
+    pile.innerHTML = '';
+    ALERTS.forEach(function (a) {
+      if (a.done) return;
+      var b = document.createElement('button');
+      b.className = 'attack-item';
+      b.innerHTML = '<span class="ico">!</span><span>' + a.text + '</span>';
+      b.addEventListener('click', function () { tryPlace(a, b); });
+      pile.appendChild(b);
+    });
+    if (!pile.children.length) { pile.innerHTML = '<p style="color:var(--good);font-weight:600;margin:4px">All alerts classified. Nicely done.</p>'; }
+  }
+  function tryPlace(a, el) {
+    if (!selectedCat) { sortExplain.textContent = 'Pick a category first, then click the alert.'; return; }
+    if (selectedCat === a.cat) {
+      a.done = true; solved++;
+      STATE.s1.solved = solved;
+      el.classList.add('placed-right');
+      sortExplain.innerHTML = '<strong style="color:var(--good)">Correct.</strong> That’s ' + CAT_NAMES[a.cat] + '.';
+      sortScore.textContent = 'Solved ' + solved + ' / ' + ALERTS.length;
+      if (solved === ALERTS.length) { STATE.s1.done = true; markTab(1, true); }
+      setTimeout(renderAlerts, 450);
+    } else {
+      el.classList.add('placed-wrong');
+      sortExplain.innerHTML = '<strong style="color:var(--crit)">Not quite.</strong> Is the target a machine or a person? Are they mapping, breaking in, tricking someone, or flooding?';
+      setTimeout(function () { el.classList.remove('placed-wrong'); }, 700);
+    }
+  }
+  catBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      selectedCat = btn.dataset.cat;
+      catBtns.forEach(function (b) { b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'); });
+      sortExplain.textContent = 'Category set to ' + CAT_NAMES[selectedCat] + '. Click a matching alert.';
+    });
+  });
+  document.getElementById('sortReset').addEventListener('click', initStation1);
+
+  /* ================= STATION 2 ================= */
+  var WIFI_POOL = [
+    { q:'The AP is broadcasting with WEP encryption. What do you do?',
+      opts:[ {t:'Leave WEP — it’s encryption, so it’s fine.',ok:false},
+             {t:'Switch to WPA3 (or WPA2-Enterprise if WPA3 isn’t supported).',ok:true},
+             {t:'Turn encryption off to simplify connecting.',ok:false} ],
+      why:'WEP is broken — its keys can be cracked in minutes. WPA3 is the current standard; WPA2-Enterprise is the strong fallback.' },
+    { q:'The admin login is still admin / admin. Next move?',
+      opts:[ {t:'Hide the SSID so nobody finds the AP.',ok:false},
+             {t:'Set a long, unique admin password and disable remote admin over the WAN.',ok:true},
+             {t:'Lower the transmit power so attackers can’t reach it.',ok:false} ],
+      why:'Default credentials are the first thing attackers try. Hiding the SSID or cutting power are not real security — both are trivially bypassed.' },
+    { q:'Someone suggests "just hide the network name (SSID)" as the main defense.',
+      opts:[ {t:'Agree — a hidden SSID is unbeatable.',ok:false},
+             {t:'Explain SSID hiding is obscurity, not security — tools reveal it instantly.',ok:true},
+             {t:'Rename the SSID to "FBI_Van" to scare attackers off.',ok:false} ],
+      why:'A hidden SSID still beacons and is trivially discovered. Strong encryption and authentication do the real work.' },
+    { q:'A student plugs a cheap travel router into a wall jack to share Wi-Fi. What is it?',
+      opts:[ {t:'A rogue access point — locate and remove it, then lock down switch ports.',ok:true},
+             {t:'A helpful signal booster — leave it.',ok:false},
+             {t:'Nothing — personal devices aren’t your problem.',ok:false} ],
+      why:'That’s a rogue AP: an unauthorized wireless door into your network, often used for evil-twin attacks. Port security and wireless monitoring catch these.' },
+    { q:'A vendor recommends MAC address filtering as your only Wi-Fi defense.',
+      opts:[ {t:'Perfect — only approved MACs can ever connect.',ok:false},
+             {t:'Use it as a minor add-on, but rely on WPA3/802.1X — MACs are easily spoofed.',ok:true},
+             {t:'Filter by device name instead; it’s harder to fake.',ok:false} ],
+      why:'MAC addresses are sniffed off the air and spoofed in seconds. Filtering is weak on its own — real protection is strong encryption plus authentication.' },
+    { q:'WPS (one-button pairing) is enabled on the access point.',
+      opts:[ {t:'Keep it — it makes connecting convenient.',ok:false},
+             {t:'Disable WPS — its PIN can be brute-forced to reveal the Wi-Fi key.',ok:true},
+             {t:'Leave it, but tape over the button.',ok:false} ],
+      why:'The WPS PIN is only effectively a few thousand combinations and can be brute-forced, exposing the passphrase. Turn WPS off.' }
+  ];
+  var wifiSteps = document.getElementById('wifiSteps');
+  var wifiFill = document.getElementById('wifiFill');
+  var wifiPct = document.getElementById('wifiPct');
+  var wifiState = document.getElementById('wifiState');
+  var WIFI, wifiProgress;
+
+  function initStation2() {
+    WIFI = shuffle(WIFI_POOL).slice(0, 4).map(function (s) {
+      return { q:s.q, why:s.why, opts:shuffle(s.opts) };
+    });
+    wifiProgress = 0;
+    STATE.s2 = { correct:0, total:WIFI.length, done:false };
+    markTab(2, false);
+    renderStation2();
+    setMeter();
+  }
+  function renderStation2() {
+    wifiSteps.innerHTML = '';
+    var letters = ['A','B','C','D'];
+    WIFI.forEach(function (step, i) {
+      var div = document.createElement('div');
+      div.className = 'wifi-step' + (i === 0 ? ' active' : '');
+      div.dataset.i = i;
+      var h = '<h3>Step ' + (i+1) + ' of ' + WIFI.length + '</h3><p style="margin:0 0 4px;font-weight:600">' + step.q + '</p><div class="opt-row">';
+      step.opts.forEach(function (o, j) {
+        h += '<button class="opt" data-ok="' + o.ok + '" data-i="' + i + '" data-j="' + j + '"><span class="k">' + letters[j] + '</span><span>' + o.t + '</span></button>';
+      });
+      h += '</div><p class="explain" data-why="' + i + '" aria-live="polite"></p>';
+      div.innerHTML = h;
+      wifiSteps.appendChild(div);
+    });
+  }
+  function setMeter() {
+    var pct = 20 + Math.round((wifiProgress / WIFI.length) * 80);
+    wifiFill.style.width = pct + '%';
+    wifiPct.textContent = pct;
+    if (pct >= 100) { wifiFill.style.background = 'var(--good)'; wifiState.textContent = 'Fully hardened'; }
+    else if (pct >= 60) { wifiFill.style.background = 'var(--warn)'; wifiState.textContent = 'Getting there'; }
+    else { wifiFill.style.background = 'var(--crit)'; wifiState.textContent = 'Wide open'; }
+  }
+  wifiSteps.addEventListener('click', function (e) {
+    var btn = e.target.closest('.opt');
+    if (!btn || btn.disabled) return;
+    var i = +btn.dataset.i;
+    var step = WIFI[i];
+    var why = wifiSteps.querySelector('[data-why="' + i + '"]');
+    var row = btn.parentNode;
+    if (btn.dataset.ok === 'true') {
+      btn.classList.add('right');
+      Array.prototype.forEach.call(row.querySelectorAll('.opt'), function (o) { o.disabled = true; });
+      why.innerHTML = '<strong style="color:var(--good)">Right call.</strong> ' + step.why;
+      wifiProgress++; STATE.s2.correct = wifiProgress; setMeter();
+      var next = wifiSteps.querySelector('.wifi-step[data-i="' + (i+1) + '"]');
+      if (next) { setTimeout(function () {
+        wifiSteps.querySelector('.wifi-step.active').classList.remove('active');
+        next.classList.add('active'); next.scrollIntoView({ behavior:'smooth', block:'nearest' });
+      }, 600); }
+      else { STATE.s2.done = true; markTab(2, true); why.innerHTML += ' <strong>The AP is locked down — station complete.</strong>'; }
+    } else {
+      btn.classList.add('wrong');
+      why.innerHTML = '<strong style="color:var(--crit)">That weakens you.</strong> ' + step.why;
+      setTimeout(function () { btn.classList.remove('wrong'); }, 800);
+    }
+  });
+  document.getElementById('wifiReset').addEventListener('click', initStation2);
+
+  /* ================= STATION 3 ================= */
+  var ZONES = { staff:'Staff / Admin', student:'Student', guest:'Guest', server:'Servers / IoT' };
+  var DEVICE_POOL = [
+    { name:'Principal’s laptop (grades, HR files)', correct:'staff' },
+    { name:'Front-office staff workstation', correct:'staff' },
+    { name:'Nurse’s station computer', correct:'staff' },
+    { name:'Athletic director’s laptop', correct:'staff' },
+    { name:'8th-grade Chromebook cart', correct:'student' },
+    { name:'Library student PCs', correct:'student' },
+    { name:'Robotics club Raspberry Pi', correct:'student' },
+    { name:'Computer-lab student desktops', correct:'student' },
+    { name:'Visitor phone on campus Wi-Fi', correct:'guest' },
+    { name:'Parent laptop at open house', correct:'guest' },
+    { name:'Guest speaker’s tablet', correct:'guest' },
+    { name:'Teacher’s personal phone (BYOD)', correct:'guest' },
+    { name:'Student Information System server', correct:'server' },
+    { name:'Smart thermostats & security cameras', correct:'server' },
+    { name:'Gym scoreboard controller', correct:'server' },
+    { name:'Door-access controller', correct:'server' }
+  ];
+  var segList = document.getElementById('segList');
+  var DEVICES;
+  function initStation3() {
+    DEVICES = sampleBalanced(DEVICE_POOL, 'correct', 2).map(function (d, i) { return { id:'d'+i, name:d.name, correct:d.correct, assigned:'' }; });
+    STATE.s3 = { correct:0, total:DEVICES.length, done:false };
+    markTab(3, false);
+    document.getElementById('segFeedback').className = 'feedback';
+    renderSeg();
+  }
+  function renderSeg() {
+    segList.innerHTML = '';
+    DEVICES.forEach(function (d) {
+      var row = document.createElement('div');
+      row.className = 'device';
+      var opts = '<option value="">— choose zone —</option>';
+      Object.keys(ZONES).forEach(function (z) { opts += '<option value="' + z + '"' + (d.assigned === z ? ' selected' : '') + '>' + ZONES[z] + '</option>'; });
+      row.innerHTML = '<span>' + d.name + '</span><select class="zsel" id="sel_' + d.id + '" aria-label="Zone for ' + d.name + '">' + opts + '</select>';
+      segList.appendChild(row);
+      row.querySelector('select').addEventListener('change', function (e) { d.assigned = e.target.value; });
+    });
+  }
+  document.getElementById('segCheck').addEventListener('click', function () {
+    var fb = document.getElementById('segFeedback');
+    var wrong = [], blank = 0, correct = 0;
+    DEVICES.forEach(function (d) {
+      if (!d.assigned) blank++;
+      else if (d.assigned !== d.correct) wrong.push(d);
+      else correct++;
+    });
+    STATE.s3.correct = correct;
+    fb.className = 'feedback show';
+    if (blank) {
+      fb.classList.add('bad');
+      fb.innerHTML = '<strong>' + blank + ' device' + (blank>1?'s':'') + ' still unassigned.</strong> Every device needs a zone before the design holds.';
+    } else if (wrong.length === 0) {
+      STATE.s3.done = true; markTab(3, true);
+      fb.classList.add('ok');
+      fb.innerHTML = '<strong>Solid segmentation.</strong> Each zone is isolated: if guests or IoT get compromised, the breach can’t reach grade servers or staff machines. That’s blast-radius control.';
+    } else {
+      fb.classList.add('bad');
+      var items = wrong.map(function (d) { return '<li><strong>' + d.name + '</strong> → belongs in <em>' + ZONES[d.correct] + '</em>' + hint(d.correct) + '</li>'; }).join('');
+      fb.innerHTML = '<strong>' + wrong.length + ' misplaced.</strong> Fix these, then re-check:<ul>' + items + '</ul>';
+    }
+    fb.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  });
+  function hint(z) {
+    if (z === 'server') return ' (high-value or untrusted appliance — isolate it hard)';
+    if (z === 'guest') return ' (untrusted; give internet only, no campus access)';
+    if (z === 'staff') return ' (sensitive data — keep off the student VLAN)';
+    return ' (students don’t need access to staff or server zones)';
+  }
+  document.getElementById('segReset').addEventListener('click', initStation3);
+
+  /* ================= STATION 4: COMPLETION ================= */
+  function vcode(name) {
+    var base = name + '|' + STATE.s1.solved + STATE.s2.correct + STATE.s3.correct;
+    var h = 0;
+    for (var i = 0; i < base.length; i++) { h = (h * 31 + base.charCodeAt(i)) >>> 0; }
+    return 'CCS3-' + ('0000' + (h % 65536).toString(16).toUpperCase()).slice(-4);
+  }
+  function stLine(label, st) {
+    return { label:label, sc: st.correct !== undefined ? st.correct : st.solved, total: st.total, done: st.done };
+  }
+  document.getElementById('buildCert').addEventListener('click', function () {
+    var name = (document.getElementById('studentName').value || '').trim();
+    var area = document.getElementById('certArea');
+    if (!name) { area.innerHTML = '<p class="feedback bad show">Type your name first, then build the certificate.</p>'; return; }
+
+    var rows = [
+      { label:'3.1 — Spot the Attack',   sc:STATE.s1.solved,  total:STATE.s1.total,  done:STATE.s1.done },
+      { label:'3.2 — Harden the Wi-Fi',  sc:STATE.s2.correct, total:STATE.s2.total, done:STATE.s2.done },
+      { label:'3.3 — Segment the Campus',sc:STATE.s3.correct, total:STATE.s3.total, done:STATE.s3.done }
+    ];
+    var totSc = rows.reduce(function (s,r){ return s + r.sc; }, 0);
+    var totMax = rows.reduce(function (s,r){ return s + r.total; }, 0);
+    var allDone = rows.every(function (r){ return r.done; });
+    var now = new Date();
+    var when = now.toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' }) + ', ' +
+               now.toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+    var code = vcode(name);
+
+    var rowHtml = rows.map(function (r) {
+      var cls = r.done ? 'tick' : 'partial';
+      var mark = r.done ? '✔' : '•';
+      return '<div class="row"><span class="st">' + r.label + '</span><span class="sc ' + cls + '">' + r.sc + ' / ' + r.total + ' <span class="' + cls + '">' + mark + '</span></span></div>';
+    }).join('');
+
+    var overall = allDone
+      ? 'All stations complete — ' + totSc + ' / ' + totMax
+      : 'In progress — ' + totSc + ' / ' + totMax + ' (finish every station for full credit)';
+
+    area.innerHTML =
+      '<div class="cert" id="certCard">' +
+        '<p class="seal">Cambridge Christian · NetAcad Module 3</p>' +
+        '<h3>Network Defense Trainer</h3>' +
+        '<p class="who">' + escapeHtml(name) + '</p>' +
+        '<p class="when">Completed ' + when + '</p>' +
+        rowHtml +
+        '<p class="overall">' + overall + '</p>' +
+        '<p class="code">Verification code: ' + code + '</p>' +
+      '</div>' +
+      '<textarea class="copyout" id="copyText" rows="10" readonly></textarea>' +
+      '<div class="btnrow">' +
+        '<button class="btn" id="copyBtn">Copy text to send</button>' +
+        '<span id="copyMsg" aria-live="polite"></span>' +
+      '</div>' +
+      '<p class="send-note">Send it to your teacher one of two ways: <strong>screenshot the certificate above</strong>, or tap <strong>Copy text to send</strong> and paste it into a Teams message or email. The verification code confirms it’s your result.</p>';
+
+    var plain =
+      'CAMBRIDGE CHRISTIAN — NetAcad Module 3\n' +
+      'Network Defense Trainer — Completion Report\n' +
+      '-----------------------------------------\n' +
+      'Name: ' + name + '\n' +
+      'Completed: ' + when + '\n\n' +
+      rows.map(function (r) {
+        return r.label + ': ' + r.sc + ' / ' + r.total + (r.done ? '  [complete]' : '  [in progress]');
+      }).join('\n') + '\n\n' +
+      'Overall: ' + totSc + ' / ' + totMax + (allDone ? ' — all stations complete' : ' — in progress') + '\n' +
+      'Verification code: ' + code;
+    document.getElementById('copyText').value = plain;
+
+    document.getElementById('copyBtn').addEventListener('click', function () {
+      var msg = document.getElementById('copyMsg');
+      var ta = document.getElementById('copyText');
+      function ok() { msg.className = 'copied'; msg.textContent = 'Copied — now paste it to your teacher.'; }
+      function fallback() { ta.focus(); ta.select(); msg.className = 'send-note'; msg.textContent = 'Press Ctrl+C (or Cmd+C) to copy the selected text.'; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(plain).then(ok).catch(fallback);
+      } else { fallback(); }
+    });
+    area.querySelector('.cert').scrollIntoView({ behavior:'smooth', block:'nearest' });
+  });
+  function escapeHtml(s) { return s.replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+
+  /* ---------- boot ---------- */
+  initStation1();
+  initStation2();
+  initStation3();
+})();
+</script>
+</body></html>
